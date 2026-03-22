@@ -102,18 +102,10 @@ function searchByNRP(data, nrp) {
   console.log('Searching for NRP:', nrp);
   if (data.length > 0) {
     console.log('Available keys in first record:', Object.keys(data[0]));
-    console.log('Available NRP values:', data.slice(0, 5).map(record => record.NRP));
+    console.log('Available NRP values:', data.slice(0, 5).map(record => record['NRP']));
   }
   
-  // Find the correct NRP column index (handle multi-line headers)
-  const headers = Object.keys(data[0]);
-  const nrpIndex = headers.findIndex(header => header.includes('NRP'));
-  console.log('NRP column index:', nrpIndex);
-  
-  const results = data.filter(record => {
-    const recordNRP = record[nrpIndex] || record['NRP'] || record.NRP;
-    return recordNRP === nrp;
-  });
+  const results = data.filter(record => record['NRP'] === nrp);
   console.log('Search results:', results);
   return results;
 }
@@ -131,18 +123,18 @@ function formatResponse(records) {
   const record = records[0];
   return {
     found: true,
-    nama: record.NAMA || '',
-    pangkat: record.PANGKAT || '',
-    nrp: record.NRP || '',
-    jabatan: record.JABATAN || '',
-    kesatuan: record.KESATUAN || '',
+    nama: record['NAMA'] || '',
+    pangkat: record['PANGKAT'] || '',
+    nrp: record['NRP'] || '',
+    jabatan: record['JABATAN'] || '',
+    kesatuan: record['KESATUAN'] || '',
     tgl_tes: record['TGL TES'] || '',
     masa_berlaku: record['MASA BERLAKU'] || '',
     tgl_hasil: record['TGL HASIL'] || '',
-    hasil: record.HASIL|| '',
+    hasil: record['HASIL'] || '',
     sisa_waktu: record['SISA WAKTU'] || '',
     bulan_penerbitan: record['BULAN PENERBITAN'] || '',
-    status: record.STATUS || ''
+    status: record['STATUS'] || ''
   };
 }
 
@@ -150,7 +142,6 @@ function formatResponse(records) {
 app.get('/senpi', authenticateApiKey, async (req, res) => {
   try {
     console.log('=== API REQUEST RECEIVED ===');
-    console.log('NRP parameter:', nrp);
     const { nrp } = req.query;
     console.log('NRP parameter:', nrp);
     
@@ -178,29 +169,6 @@ app.get('/senpi', authenticateApiKey, async (req, res) => {
   }
 });
 
-// Debug endpoint to see raw data
-app.get('/debug', authenticateApiKey, async (req, res) => {
-  try {
-    const data = await getCachedData();
-    if (data.length > 0) {
-      // Show headers and first few records
-      const headers = Object.keys(data[0]);
-      const sampleRecords = data.slice(0, 3);
-      
-      res.json({
-        total_records: data.length,
-        headers: headers,
-        sample_records: sampleRecords,
-        nrp_values: data.map(record => record.NRP).slice(0, 10) // Show first 10 NRP values
-      });
-    } else {
-      res.json({ message: 'No data found' });
-    }
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-});
-
 // Health check endpoint
 app.get('/health', (req, res) => {
   res.json({
@@ -215,7 +183,6 @@ app.listen(PORT, () => {
   console.log(`Bridge API server running on port ${PORT}`);
   console.log('Endpoints:');
   console.log('  GET /senpi?nrp={nrp}&apikey={key}');
-  console.log('  GET /debug?apikey={key}');
   console.log('  GET /health');
 });
 
