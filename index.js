@@ -20,10 +20,28 @@ const SHEET_NAME = process.env.SHEET_NAME || 'Sheet1';
 const API_KEY = process.env.API_KEY;
 
 // Initialize Google Sheets API
-const auth = new google.auth.GoogleAuth({
-  keyFile: process.env.GOOGLE_APPLICATION_CREDENTIALS,
-  scopes: ['https://www.googleapis.com/auth/spreadsheets.readonly'],
-});
+let auth;
+try {
+  // Try to use environment variable first (for Vercel)
+  if (process.env.GOOGLE_APPLICATION_CREDENTIALS_JSON) {
+    const credentials = JSON.parse(process.env.GOOGLE_APPLICATION_CREDENTIALS_JSON);
+    auth = new google.auth.JWT({
+      email: credentials.client_email,
+      key: credentials.private_key,
+      scopes: ['https://www.googleapis.com/auth/spreadsheets.readonly'],
+    });
+  } else {
+    // Fallback to file (for local development)
+    auth = new google.auth.GoogleAuth({
+      keyFile: process.env.GOOGLE_APPLICATION_CREDENTIALS,
+      scopes: ['https://www.googleapis.com/auth/spreadsheets.readonly'],
+    });
+  }
+  console.log('✅ Google Auth initialized successfully');
+} catch (error) {
+  console.error('❌ Google Auth failed:', error.message);
+  throw error;
+}
 
 const sheets = google.sheets({ version: 'v4', auth });
 
