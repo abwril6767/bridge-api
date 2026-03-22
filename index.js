@@ -22,16 +22,32 @@ const API_KEY = process.env.API_KEY;
 // Initialize Google Sheets API
 let auth;
 try {
+  console.log('🔧 Initializing Google Auth...');
+  
   // Try to use environment variable first (for Vercel)
   if (process.env.GOOGLE_APPLICATION_CREDENTIALS_JSON) {
-    const credentials = JSON.parse(process.env.GOOGLE_APPLICATION_CREDENTIALS_JSON);
-    auth = new google.auth.JWT({
-      email: credentials.client_email,
-      key: credentials.private_key,
-      scopes: ['https://www.googleapis.com/auth/spreadsheets.readonly'],
-    });
+    console.log('� Found GOOGLE_APPLICATION_CREDENTIALS_JSON');
+    try {
+      const credentials = JSON.parse(process.env.GOOGLE_APPLICATION_CREDENTIALS_JSON);
+      console.log('✅ Service account JSON parsed successfully');
+      console.log('📧 Client email:', credentials.client_email);
+      
+      auth = new google.auth.JWT({
+        email: credentials.client_email,
+        key: credentials.private_key,
+        scopes: ['https://www.googleapis.com/auth/spreadsheets.readonly'],
+      });
+    } catch (parseError) {
+      console.error('❌ JSON parse failed, falling back to file:', parseError.message);
+      // Fall back to file method
+      auth = new google.auth.GoogleAuth({
+        keyFile: process.env.GOOGLE_APPLICATION_CREDENTIALS,
+        scopes: ['https://www.googleapis.com/auth/spreadsheets.readonly'],
+      });
+    }
   } else {
     // Fallback to file (for local development)
+    console.log('🔧 Using file for Google Auth');
     auth = new google.auth.GoogleAuth({
       keyFile: process.env.GOOGLE_APPLICATION_CREDENTIALS,
       scopes: ['https://www.googleapis.com/auth/spreadsheets.readonly'],
@@ -40,7 +56,8 @@ try {
   console.log('✅ Google Auth initialized successfully');
 } catch (error) {
   console.error('❌ Google Auth failed:', error.message);
-  throw error;
+  // Don't throw - let the API handle the error gracefully
+  auth = null;
 }
 
 const sheets = google.sheets({ version: 'v4', auth });
@@ -62,6 +79,10 @@ const authenticateApiKey = (req, res, next) => {
 // Fetch data from Google Sheets using API
 async function fetchSheetData() {
   try {
+    if (!auth) {
+      throw new Error('Google Auth not initialized - check environment variables');
+    }
+    
     const response = await sheets.spreadsheets.values.get({
       spreadsheetId: SPREADSHEET_ID,
       range: SHEET_NAME,
@@ -147,11 +168,9 @@ function formatResponse(records) {
     jabatan: record['JABATAN'] || '',
     kesatuan: record['KESATUAN'] || '',
     tgl_tes: record['TGL TES'] || '',
-    masa_berlaku: record['MASA BERLAKU'] || '',
     tgl_hasil: record['TGL HASIL'] || '',
+    masa_berlaku: record['MASA BERLAKU'] || '',
     hasil: record['HASIL'] || '',
-    sisa_waktu: record['SISA WAKTU'] || '',
-    bulan_penerbitan: record['BULAN PENERBITAN'] || '',
     status: record['STATUS'] || ''
   };
 }
@@ -202,6 +221,14 @@ app.listen(PORT, () => {
   console.log('Endpoints:');
   console.log('  GET /senpi?nrp={nrp}&apikey={key}');
   console.log('  GET /health');
+  
+  // Debug environment variables
+  console.log('\n🔍 Environment Variables Check:');
+  console.log('SPREADSHEET_ID:', process.env.SPREADSHEET_ID ? '✅ SET' : '❌ NOT SET');
+  console.log('SHEET_NAME:', process.env.SHEET_NAME ? '✅ SET' : '❌ NOT SET');
+  console.log('API_KEY:', process.env.API_KEY ? '✅ SET' : '❌ NOT SET');
+  console.log('GOOGLE_APPLICATION_CREDENTIALS:', process.env.GOOGLE_APPLICATION_CREDENTIALS ? '✅ SET' : '❌ NOT SET');
+  console.log('GOOGLE_APPLICATION_CREDENTIALS_JSON:', process.env.GOOGLE_APPLICATION_CREDENTIALS_JSON ? '✅ SET' : '❌ NOT SET');
 });
 
 module.exports = app;
